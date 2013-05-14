@@ -66,13 +66,14 @@ class GitHandler(object):
 
         self._map_git_real = {}
         self._map_hg_real = {}
+        self._map_hg_short = {}
         self.load_tags()
 
     def path_join(self, path):
         return os.path.join(self.gitdir, path)
 
-    def opener(self, *args):
-        return open(*args)
+    def opener(self, fname, *args):
+        return open(self.path_join(fname), *args)
 
     @property
     def _map_git(self):
@@ -112,8 +113,12 @@ class GitHandler(object):
     ## FILE LOAD AND SAVE METHODS
 
     def map_set(self, gitsha, hgsha):
-        self._map_git[gitsha] = hgsha
-        self._map_hg[hgsha] = gitsha
+        map_set(
+            gitsha, hgsha,
+            self._map_git,
+            self._map_hg,
+            self._map_hg_short
+        )
 
     def map_hg_get(self, gitsha):
         return self._map_git.get(gitsha)
@@ -123,10 +128,12 @@ class GitHandler(object):
 
     def load_map(self):
         if os.path.exists(self.path_join(self.mapfile)):
-            for line in self.opener(self.mapfile):
-                gitsha, hgsha = line.strip().split(' ', 1)
-                self._map_git_real[gitsha] = hgsha
-                self._map_hg_real[hgsha] = gitsha
+            load_map(
+                self.path_join(self.mapfile),
+                self._map_git,
+                self._map_hg,
+                self._map_hg_short
+            )
 
     def save_map(self):
         file = self.opener(self.mapfile, 'w+')
@@ -173,7 +180,7 @@ class GitHandler(object):
         self.init_if_missing()
 
         nodes = [self.repo.lookup(n) for n in self.repo]
-        export = [node for node in nodes if not hex(node) in self._map_hg]
+        export = [node for node in nodes if not hex_(node) in self._map_hg]
         total = len(export)
         if total:
             self.ui.note(_("exporting hg objects to git\n"))
@@ -199,7 +206,7 @@ class GitHandler(object):
     # go through the manifest, convert all blobs/trees we don't have
     # write the commit object (with metadata info)
     def export_hg_commit(self, rev, exporter):
-        self.ui.note(_("converting revision %s\n") % hex(rev))
+        self.ui.note(_("converting revision %s\n") % hex_(rev))
 
         oldenc = self.swap_out_encoding()
 
@@ -242,7 +249,7 @@ class GitHandler(object):
 
         commit.parents = []
         for parent in self.get_git_parents(ctx):
-            hgsha = hex(parent.node())
+            hgsha = hex_(parent.node())
             git_sha = self.map_git_get(hgsha)
             if git_sha:
                 if git_sha not in self.git.object_store:
@@ -373,11 +380,7 @@ class GitHandler(object):
         if 'message' in extra:
             message = "".join(apply_delta(message, extra['message']))
 
-        for f in ctx.files():
-            if f not in ctx.manifest():
-                continue
-            rename = ctx.filectx(f).renamed()
-
+        message = replace_hg_tags(self._map_hg_real, self._map_hg_short, message)
         return message
 
 
@@ -397,10 +400,10 @@ class GitHandler(object):
         for tag, sha in self.repo.tags().iteritems():
             if self.repo.tagtype(tag) in ('global', 'git'):
                 tag = tag.replace(' ', '_')
-                target = self.map_git_get(hex(sha))
+                target = self.map_git_get(hex_(sha))
                 if target is not None:
                     self.git.refs['refs/tags/' + tag] = target
-                    self.tags[tag] = hex(sha)
+                    self.tags[tag] = hex_(sha)
                 else:
                     self.repo.ui.warn(
                         'Skipping export of tag %s because it '
@@ -458,3 +461,27 @@ class GitHandler(object):
             hgutil._encoding = new_encoding
         return old
 
+def map_set(gitsha, hgsha, map_git, map_hg, map_hg_short):
+    map_git[gitsha] = hgsha
+    map_hg[hgsha] = gitsha
+    map_hg_short[hgsha[0:12]] = gitsha
+
+def load_map(mapfile, map_git, map_hg, map_hg_short):
+    with open(mapfile) as file_:
+        for line in file_:
+            gitsha, hgsha = line.strip().split(' ', 1)
+            map_set(gitsha, hgsha, map_git, map_hg, map_hg_short)
+
+
+def replace_hg_tags(hg_map, hg_short_map, text):
+    def repl(m):
+        hash_ = m.group(1)
+        if hash_ in hg_short_map:
+            return hg_short_map[hash_]
+        elif hash_ in hg_map:
+            return hg_map[hash_]
+        else:
+            return hash_
+    return re.sub(
+                r'\b([a-f0-9]{12,})\b', repl, text
+            )
