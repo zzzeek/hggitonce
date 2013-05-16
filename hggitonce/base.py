@@ -8,9 +8,8 @@ def hg_to_git(args):
 
     ui_obj = ui.ui()
 
-
     repo = hg.repository(ui_obj, hg_repo)
-    GitHandler(repo, ui_obj, dest).export_commits()
+    GitHandler(repo, ui_obj, dest, authors=args.authors).export_commits()
 
 def translate_file_revs(args):
     mapfile = args.mapfile

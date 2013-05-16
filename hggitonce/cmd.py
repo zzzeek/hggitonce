@@ -13,6 +13,7 @@ def main(argv=None):
     subparser.set_defaults(cmd=base.hg_to_git)
     subparser.add_argument("hg_repo", help="Path to hg repo")
     subparser.add_argument("dest", help="where to put the git repo")
+    subparser.add_argument("-a", "--authors", help="optional path to authors file")
 
     subparser = subparsers.add_parser("subrevs",
                     help="Convert all hg revs in a text file to git revs")

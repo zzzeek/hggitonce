@@ -53,16 +53,15 @@ class GitHandler(object):
     mapfile = 'git-mapfile'
     tagsfile = 'git-tags'
 
-    def __init__(self, dest_repo, ui, gitdir):
+    def __init__(self, dest_repo, ui, gitdir, authors=None):
         self.repo = dest_repo
         self.ui = ui
         self.gitdir = gitdir
+        self.authors = authors
 
         self.init_author_file()
 
         self.paths = ui.configitems('paths')
-
-        self.branch_bookmark_suffix = ui.config('git', 'branch_bookmark_suffix')
 
         self._map_git_real = {}
         self._map_hg_real = {}
@@ -97,18 +96,14 @@ class GitHandler(object):
 
     def init_author_file(self):
         self.author_map = {}
-        if self.ui.config('git', 'authors'):
-            f = open(self.repo.wjoin(
-                self.ui.config('git', 'authors')))
-            try:
-                for line in f:
+        if self.authors:
+            with open(self.authors) as authorfile:
+                for line in authorfile:
                     line = line.strip()
                     if not line or line.startswith('#'):
                         continue
                     from_, to = RE_AUTHOR_FILE.split(line, 2)
                     self.author_map[from_] = to
-            finally:
-                f.close()
 
     ## FILE LOAD AND SAVE METHODS
 
