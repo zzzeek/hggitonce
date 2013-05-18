@@ -21,6 +21,13 @@ def main(argv=None):
     subparser.add_argument("mapfile", help="Path to rev file")
     subparser.add_argument("input", help="path to input file")
 
+    subparser = subparsers.add_parser("trac_subrevs",
+                    help="Convert all hg revs in a trac repo's "
+                        "comments/descriptions to git revs")
+    subparser.set_defaults(cmd=base.translate_trac_revs)
+    subparser.add_argument("mapfile", help="Path to rev file")
+    subparser.add_argument("dburl", help="SQLAlchemy URL")
+
     args = parser.parse_args(argv)
 
     cmd = args.cmd
