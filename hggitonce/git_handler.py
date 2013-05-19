@@ -470,19 +470,14 @@ def load_map(mapfile, map_git, map_hg, map_hg_short):
 
 def replace_hg_tags(hg_map, hg_short_map, text):
     def repl(m):
-        hash_ = m.group(1)
-        if hash_.startswith("r"):
-            r = True
-            hash_ = hash_[1:]
-        else:
-            r = False
-
+        hash_ = m.group(2)
         if hash_ in hg_short_map:
-            return ("r" if r else "") + hg_short_map[hash_]
+            hash_ = hg_short_map[hash_]
         elif hash_ in hg_map:
-            return ("r" if r else "") + hg_map[hash_]
+            hash_ = hg_map[hash_]
         else:
-            return ("r" if r else "") + m.group(1) + hash_
+            hash_ = m.group(1) + hash_
+        return m.group(1) + hash_
     return re.sub(
-                r'\b(r?[a-f0-9]{12,})\b', repl, text
+                r'\b(r?)([a-f0-9]{12,})\b', repl, text
             )
