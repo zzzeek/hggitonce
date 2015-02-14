@@ -125,8 +125,8 @@ class GitHandler(object):
         if os.path.exists(self.path_join(self.mapfile)):
             load_map(
                 self.path_join(self.mapfile),
-                self._map_git,
-                self._map_hg,
+                self._map_git_real,
+                self._map_hg_real,
                 self._map_hg_short
             )
 
@@ -406,8 +406,8 @@ class GitHandler(object):
 
     def local_heads(self):
         d = dict(
-            (k, hex_(v)) for
-                k, v in  self.repo.branchtags().items()
+            (k, hex_(v[0])) for
+                k, v in  self.repo.branchmap().items()
         )
         if 'default' in d:
             d['master'] = d['default']
